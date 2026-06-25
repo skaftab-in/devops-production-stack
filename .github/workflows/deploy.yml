@@ -23,7 +23,21 @@ jobs:
 
             git pull origin main
 
-            docker compose down
-            docker compose up -d --build
+            # Build new image without stopping running containers
+            docker compose build app
 
+            # Scale up to 2 instances, new + old running together
+            docker compose up -d --no-deps --scale app=2 --no-recreate app
+            sleep 10
+
+            # Scale back down to 1, old container removed
+            docker compose up -d --no-deps --scale app=1 app
+
+            # Ensure all other services are up
+            docker compose up -d --no-deps postgres redis
+
+            # Reload nginx without full restart to pick up new upstream
+            docker compose exec -T nginx nginx -s reload
+
+            # Cleanup old images
             docker image prune -f
